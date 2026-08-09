@@ -122,12 +122,40 @@ main {
 
 .mode-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
 }
 
 .mode-row button {
-  flex: 1;
+  flex: 1 1 calc(33.33% - 0.35rem);
+  min-width: 4.5rem;
   min-height: 2.75rem;
+  padding-inline: 0.45rem;
+  font-size: 0.95rem;
+}
+
+.speed-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.35rem 0.15rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.speed-row[hidden] {
+  display: none;
+}
+
+.speed-row select {
+  font: inherit;
+  min-height: 2.75rem;
+  min-width: 5.5rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 0.55rem;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--text);
 }
 
 .mode-row button[aria-pressed="true"] {

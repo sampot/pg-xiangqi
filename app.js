@@ -8,6 +8,9 @@ const GRID = { left: 32, top: 31, width: 448, height: 495 };
 const STEP_X = GRID.width / 8;
 const STEP_Y = GRID.height / 9;
 
+/** @type {Record<'slow'|'normal'|'fast', number>} */
+const AI_VS_AI_DELAY = { slow: 900, normal: 480, fast: 220 };
+
 const audio = new XiangqiAudio();
 const game = new XiangqiGame();
 globalThis.__xiangqi = game;
@@ -20,8 +23,12 @@ const modeEl = document.getElementById("mode");
 const btnMute = document.getElementById("btn-mute");
 const btnNew = document.getElementById("btn-new");
 const btnResign = document.getElementById("btn-resign");
+const btnPause = document.getElementById("btn-pause");
 const btnModeAi = document.getElementById("btn-mode-ai");
 const btnModeHot = document.getElementById("btn-mode-hot");
+const btnModeAivsai = document.getElementById("btn-mode-aivsai");
+const speedRow = document.getElementById("speed-row");
+const speedEl = document.getElementById("speed");
 const confirmEl = document.getElementById("confirm");
 const confirmTitle = document.getElementById("confirm-title");
 const confirmBody = document.getElementById("confirm-body");
@@ -32,6 +39,8 @@ const confirmCancel = document.getElementById("confirm-cancel");
 let aiTimer = null;
 /** @type {null | (() => void)} */
 let confirmAction = null;
+/** Whether AI-vs-AI autoplay is running */
+let aiVsAiRunning = false;
 
 /**
  * @param {number} f
@@ -55,22 +64,55 @@ function setStatus(msg, tone = "") {
   statusEl.dataset.tone = tone;
 }
 
+function modeLabel() {
+  if (game.mode === "ai") return "人機";
+  if (game.mode === "aivsai") return "AI對AI";
+  return "雙人";
+}
+
 function syncHud() {
   if (game.status === "win") {
-    turnEl.textContent = game.mode === "hotseat" ? "終局" : "你勝";
+    if (game.mode === "aivsai" || game.mode === "hotseat") {
+      turnEl.textContent = game.winner === "red" ? "紅勝" : game.winner === "black" ? "黑勝" : "終局";
+    } else {
+      turnEl.textContent = "你勝";
+    }
   } else if (game.status === "lose") {
     turnEl.textContent = "電腦勝";
+  } else if (game.mode === "aivsai") {
+    turnEl.textContent = aiVsAiRunning
+      ? game.turn === "red"
+        ? "紅AI"
+        : "黑AI"
+      : "已暫停";
   } else if (game.aiThinking) {
     turnEl.textContent = "電腦思考";
   } else {
     turnEl.textContent = game.turn === "red" ? "紅方" : "黑方";
   }
   checkEl.textContent = game.inCheckFlag && game.status === "playing" ? "將軍" : "—";
-  modeEl.textContent = game.mode === "ai" ? "人機" : "雙人";
+  modeEl.textContent = modeLabel();
   btnModeAi.setAttribute("aria-pressed", game.mode === "ai" ? "true" : "false");
   btnModeHot.setAttribute("aria-pressed", game.mode === "hotseat" ? "true" : "false");
+  btnModeAivsai.setAttribute("aria-pressed", game.mode === "aivsai" ? "true" : "false");
+
+  const isWatch = game.mode === "aivsai";
+  btnResign.hidden = isWatch;
+  btnPause.hidden = !isWatch;
+  speedRow.hidden = !isWatch;
+  if (isWatch) {
+    btnPause.textContent = aiVsAiRunning ? "暫停" : "繼續";
+    btnPause.setAttribute("aria-pressed", aiVsAiRunning ? "true" : "false");
+  }
+
   const tone =
-    game.status === "win" ? "win" : game.status === "lose" ? "lose" : game.inCheckFlag ? "warn" : "";
+    game.status === "win"
+      ? "win"
+      : game.status === "lose"
+        ? "lose"
+        : game.inCheckFlag
+          ? "warn"
+          : "";
   setStatus(game.message, tone);
 }
 
@@ -89,8 +131,13 @@ function handleEvents(events) {
   }
 }
 
-function scheduleAi() {
+function clearAiTimer() {
   if (aiTimer) clearTimeout(aiTimer);
+  aiTimer = null;
+}
+
+function scheduleHumanAi() {
+  clearAiTimer();
   if (game.status !== "playing" || game.mode !== "ai") return;
   if (game.turn !== game.aiSide) return;
   game.aiThinking = true;
@@ -102,8 +149,60 @@ function scheduleAi() {
     handleEvents(events);
     syncHud();
     renderBoard();
-    if (game.status === "playing" && game.turn === game.aiSide) scheduleAi();
+    if (game.status === "playing" && game.turn === game.aiSide) scheduleHumanAi();
   }, 380 + Math.random() * 280);
+}
+
+function scheduleAiVsAi() {
+  clearAiTimer();
+  if (!aiVsAiRunning || game.status !== "playing" || game.mode !== "aivsai") {
+    game.aiThinking = false;
+    syncHud();
+    return;
+  }
+  game.aiThinking = true;
+  syncHud();
+  renderBoard();
+  const key = /** @type {'slow'|'normal'|'fast'} */ (speedEl.value || "normal");
+  const delay = AI_VS_AI_DELAY[key] ?? AI_VS_AI_DELAY.normal;
+  aiTimer = setTimeout(() => {
+    if (!aiVsAiRunning || game.mode !== "aivsai") {
+      game.aiThinking = false;
+      syncHud();
+      return;
+    }
+    const { events } = game.aiMove(2);
+    game.aiThinking = false;
+    handleEvents(events);
+    syncHud();
+    renderBoard();
+    if (game.status === "playing" && aiVsAiRunning) scheduleAiVsAi();
+    else {
+      aiVsAiRunning = false;
+      syncHud();
+    }
+  }, delay);
+}
+
+function startAiVsAi(fresh = true) {
+  clearAiTimer();
+  if (fresh) game.reset("aivsai", "red");
+  aiVsAiRunning = true;
+  game.aiThinking = false;
+  syncHud();
+  renderBoard();
+  scheduleAiVsAi();
+}
+
+function stopAiVsAi() {
+  aiVsAiRunning = false;
+  clearAiTimer();
+  game.aiThinking = false;
+  if (game.status === "playing" && game.mode === "aivsai") {
+    game.message = "已暫停 · 可按「繼續」或開新局";
+  }
+  syncHud();
+  renderBoard();
 }
 
 function renderBoard() {
@@ -167,50 +266,74 @@ function closeConfirm() {
   confirmAction = null;
 }
 
+/**
+ * @param {'ai'|'hotseat'|'aivsai'} mode
+ */
+function switchMode(mode) {
+  clearAiTimer();
+  aiVsAiRunning = false;
+  game.aiThinking = false;
+  if (mode === "aivsai") {
+    startAiVsAi(true);
+  } else {
+    game.reset(mode, "red");
+    syncHud();
+    renderBoard();
+  }
+  closeConfirm();
+}
+
 boardEl.addEventListener("click", async (e) => {
   await audio.unlock();
   const t = e.target;
   if (!(t instanceof Element)) return;
   const btn = t.closest("button.cell");
   if (!btn || !boardEl.contains(btn)) return;
+  if (game.aiThinking || !game.isHumanTurn()) return;
   const f = Number(btn.dataset.f);
   const r = Number(btn.dataset.r);
-  if (game.aiThinking || !game.isHumanTurn()) return;
   const { events, ok } = game.click(f, r);
   handleEvents(events);
   syncHud();
   renderBoard();
   if (ok && game.mode === "ai" && game.turn === game.aiSide && game.status === "playing") {
-    scheduleAi();
+    scheduleHumanAi();
   }
 });
 
 btnNew.addEventListener("click", async () => {
   await audio.unlock();
   askConfirm("開新局？", "目前對局進度會清空。", () => {
-    if (aiTimer) clearTimeout(aiTimer);
+    clearAiTimer();
     game.aiThinking = false;
-    game.reset(game.mode, "red");
-    syncHud();
-    renderBoard();
+    if (game.mode === "aivsai") {
+      startAiVsAi(true);
+    } else {
+      aiVsAiRunning = false;
+      game.reset(game.mode, "red");
+      syncHud();
+      renderBoard();
+    }
     closeConfirm();
   });
 });
 
 btnResign.addEventListener("click", async () => {
   await audio.unlock();
-  if (game.status !== "playing") return;
+  if (game.status !== "playing" || game.mode === "aivsai") return;
   askConfirm("認輸？", "確定後對方獲勝。", () => {
-    if (aiTimer) clearTimeout(aiTimer);
+    clearAiTimer();
     game.aiThinking = false;
     if (game.mode === "ai") {
       game.status = "lose";
+      game.winner = game.aiSide;
       game.message = "你認輸了";
       handleEvents(["lose"]);
     } else {
-      const winner = game.turn === "red" ? "黑" : "紅";
+      const winner = game.turn === "red" ? "black" : "red";
       game.status = "win";
-      game.message = `${winner}方獲勝（對手認輸）`;
+      game.winner = winner;
+      game.message = `${winner === "red" ? "紅" : "黑"}方獲勝（對手認輸）`;
       handleEvents(["win"]);
     }
     syncHud();
@@ -219,28 +342,42 @@ btnResign.addEventListener("click", async () => {
   });
 });
 
+btnPause.addEventListener("click", async () => {
+  await audio.unlock();
+  if (game.mode !== "aivsai" || game.status !== "playing") return;
+  if (aiVsAiRunning) stopAiVsAi();
+  else {
+    aiVsAiRunning = true;
+    game.message = "AI 對弈繼續…";
+    scheduleAiVsAi();
+  }
+});
+
+speedEl.addEventListener("change", async () => {
+  await audio.unlock();
+  if (game.mode === "aivsai" && aiVsAiRunning && game.status === "playing") {
+    scheduleAiVsAi();
+  }
+});
+
 btnModeAi.addEventListener("click", async () => {
   await audio.unlock();
   if (game.mode === "ai") return;
-  askConfirm("改為人機？", "將開新局，你執紅、電腦執黑。", () => {
-    if (aiTimer) clearTimeout(aiTimer);
-    game.reset("ai", "red");
-    syncHud();
-    renderBoard();
-    closeConfirm();
-  });
+  askConfirm("改為人機？", "將開新局，你執紅、電腦執黑。", () => switchMode("ai"));
 });
 
 btnModeHot.addEventListener("click", async () => {
   await audio.unlock();
   if (game.mode === "hotseat") return;
-  askConfirm("改為雙人熱座？", "將開新局，紅黑輪流同機下棋。", () => {
-    if (aiTimer) clearTimeout(aiTimer);
-    game.reset("hotseat", "red");
-    syncHud();
-    renderBoard();
-    closeConfirm();
-  });
+  askConfirm("改為雙人熱座？", "將開新局，紅黑輪流同機下棋。", () => switchMode("hotseat"));
+});
+
+btnModeAivsai.addEventListener("click", async () => {
+  await audio.unlock();
+  if (game.mode === "aivsai") return;
+  askConfirm("改為 AI 對 AI？", "將開新局，雙方皆由電腦自動下棋，可暫停／調速。", () =>
+    switchMode("aivsai"),
+  );
 });
 
 confirmOk.addEventListener("click", () => {

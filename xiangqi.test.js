@@ -127,4 +127,18 @@ describe("XiangqiGame", () => {
     expect(g.moveCount).toBe(before + 1);
     expect(outcomeFor(g.board, "red")).toBe("playing");
   });
+
+  it("aivsai lets AI play both sides", () => {
+    const g = new XiangqiGame();
+    g.reset("aivsai");
+    expect(g.isHumanTurn()).toBe(false);
+    expect(g.turn).toBe("red");
+    const r1 = g.aiMove(1);
+    expect(r1.events.length).toBeGreaterThan(0);
+    expect(g.turn).toBe("black");
+    const r2 = g.aiMove(1);
+    expect(r2.events.length).toBeGreaterThan(0);
+    expect(g.turn).toBe("red");
+    expect(g.moveCount).toBe(2);
+  });
 });

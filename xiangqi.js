@@ -483,13 +483,13 @@ export class XiangqiGame {
   }
 
   /**
-   * @param {'ai'|'hotseat'} [mode]
+   * @param {'ai'|'hotseat'|'aivsai'} [mode]
    * @param {Side} [playerSide] — in AI mode, human side (default red)
    */
   reset(mode = "ai", playerSide = "red") {
     /** @type {(Piece|null)[][]} */
     this.board = startingBoard();
-    /** @type {'ai'|'hotseat'} */
+    /** @type {'ai'|'hotseat'|'aivsai'} */
     this.mode = mode;
     /** @type {Side} */
     this.playerSide = playerSide;
@@ -497,11 +497,18 @@ export class XiangqiGame {
     this.turn = "red";
     /** @type {'playing'|'win'|'lose'|'draw'} */
     this.status = "playing";
+    /** @type {Side|null} */
+    this.winner = null;
     /** @type {Pos|null} */
     this.selected = null;
     /** @type {Move|null} */
     this.lastMove = null;
-    this.message = mode === "ai" ? "紅方先行 · 點選己方棋子" : "紅方先行 · 雙人輪流";
+    this.message =
+      mode === "ai"
+        ? "紅方先行 · 點選己方棋子"
+        : mode === "aivsai"
+          ? "AI 對 AI · 紅方先行"
+          : "紅方先行 · 雙人輪流";
     this.aiThinking = false;
     this.moveCount = 0;
     this.inCheckFlag = false;
@@ -518,6 +525,7 @@ export class XiangqiGame {
 
   isHumanTurn() {
     if (this.status !== "playing" || this.aiThinking) return false;
+    if (this.mode === "aivsai") return false;
     if (this.mode === "hotseat") return true;
     return this.turn === this.playerSide;
   }
@@ -591,12 +599,15 @@ export class XiangqiGame {
 
     if (state === "checkmate" || state === "stalemate") {
       const winner = this.turn;
-      if (this.mode === "hotseat") {
+      this.winner = winner;
+      const name = winner === "red" ? "紅" : "黑";
+      const how = state === "checkmate" ? "將死" : "困斃";
+      if (this.mode === "hotseat" || this.mode === "aivsai") {
         this.status = "win";
         this.message =
-          state === "checkmate"
-            ? `${winner === "red" ? "紅" : "黑"}方將死獲勝`
-            : `${winner === "red" ? "紅" : "黑"}方困斃獲勝`;
+          this.mode === "aivsai"
+            ? `AI 對弈結束 · ${name}方${how}獲勝`
+            : `${name}方${how}獲勝`;
         events.push("win");
       } else if (winner === this.playerSide) {
         this.status = "win";
@@ -618,27 +629,43 @@ export class XiangqiGame {
   }
 
   /**
-   * AI plays one move for aiSide.
+   * AI plays one move for the side to move (human-vs-AI: only aiSide; aivsai: either).
    * @param {number} [depth]
    * @returns {{ events: string[] }}
    */
   aiMove(depth = 2) {
     /** @type {string[]} */
     const events = [];
-    if (this.status !== "playing" || this.mode !== "ai") return { events };
-    if (this.turn !== this.aiSide) return { events };
+    if (this.status !== "playing") return { events };
+    if (this.mode === "hotseat") return { events };
+    if (this.mode === "ai" && this.turn !== this.aiSide) return { events };
 
-    const move = pickAiMove(this.board, this.aiSide, depth);
+    const side = this.turn;
+    const move = pickAiMove(this.board, side, depth);
     if (!move) {
-      this.status = "win";
-      this.message = "電腦無棋可走，你贏了";
-      events.push("win");
+      this.winner = opposite(side);
+      if (this.mode === "aivsai") {
+        this.status = "win";
+        this.message = `AI 對弈結束 · ${this.winner === "red" ? "紅" : "黑"}方獲勝`;
+        events.push("win");
+      } else {
+        this.status = "win";
+        this.message = "電腦無棋可走，你贏了";
+        events.push("win");
+      }
       return { events };
     }
     const captured = this.at(move.to.f, move.to.r);
+    const sideName = side === "red" ? "紅" : "黑";
     this._commitMove(move, events);
     if (this.status === "playing") {
-      this.message = captured ? "電腦吃子" : "電腦移動了一子";
+      if (this.mode === "aivsai") {
+        this.message = captured
+          ? `${sideName}方 AI 吃子`
+          : `${sideName}方 AI 移動`;
+      } else {
+        this.message = captured ? "電腦吃子" : "電腦移動了一子";
+      }
       if (this.inCheckFlag) this.message += " · 將軍";
     }
     if (captured && !events.includes("capture")) events.push("capture");

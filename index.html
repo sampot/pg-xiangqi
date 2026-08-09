@@ -6,7 +6,7 @@
     <meta name="color-scheme" content="light dark" />
     <meta
       name="description"
-      content="中國象棋：人機／雙人熱座，標準規則與將軍困斃。純前端 Playgrounds SAM。"
+      content="中國象棋：人機／雙人熱座／AI 對 AI，標準規則與將軍困斃。純前端 Playgrounds SAM。"
     />
     <title>象棋</title>
     <link rel="stylesheet" href="./styles.css" />
@@ -15,7 +15,7 @@
     <main>
       <header class="hero">
         <h1>象棋</h1>
-        <p class="tagline">楚河漢界 · 人機／雙人 · 純娛樂</p>
+        <p class="tagline">楚河漢界 · 人機／雙人／AI · 純娛樂</p>
       </header>
 
       <section class="meter" aria-label="對局狀態">
@@ -41,8 +41,20 @@
       <div class="mode-row" role="group" aria-label="對戰模式">
         <button type="button" id="btn-mode-ai" aria-pressed="true">人機</button>
         <button type="button" id="btn-mode-hot" class="secondary" aria-pressed="false">
-          雙人熱座
+          雙人
         </button>
+        <button type="button" id="btn-mode-aivsai" class="secondary" aria-pressed="false">
+          AI對AI
+        </button>
+      </div>
+
+      <div id="speed-row" class="speed-row" hidden>
+        <label for="speed">速度</label>
+        <select id="speed" aria-label="AI 對 AI 速度">
+          <option value="slow">慢</option>
+          <option value="normal" selected>中</option>
+          <option value="fast">快</option>
+        </select>
       </div>
 
       <div class="stage">
@@ -59,11 +71,12 @@
 
       <div class="controls">
         <button type="button" id="btn-new" class="secondary">開局</button>
+        <button type="button" id="btn-pause" class="secondary" hidden>暫停</button>
         <button type="button" id="btn-resign" class="danger">認輸</button>
       </div>
 
       <p class="hint">
-        點己方棋子再點目標格移動或吃子；合法格會提示。人機模式你執紅、電腦執黑。將軍須應，無棋可走（困斃）判負。素材署名見 README。
+        點己方棋子再點目標格移動或吃子；合法格會提示。人機你執紅；AI 對 AI 可暫停與調速。將軍須應，無棋可走（困斃）判負。素材署名見 README。
       </p>
     </main>
 
