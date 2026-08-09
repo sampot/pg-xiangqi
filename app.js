@@ -55,8 +55,24 @@ function pointStyle(f, r) {
   };
 }
 
-function pieceSrc(side, kind) {
-  return `./assets/pieces/${side}_${kind}.svg`;
+/**
+ * @param {'red'|'black'} side
+ * @param {string} kind
+ */
+function makePieceEl(side, kind) {
+  const wrap = document.createElement("span");
+  wrap.className = `piece ${side}`;
+  wrap.setAttribute("aria-hidden", "true");
+
+  const back = document.createElement("span");
+  back.className = "piece-back";
+
+  const face = document.createElement("span");
+  face.className = "piece-face";
+  face.textContent = pieceLabel({ side, kind });
+
+  wrap.append(back, face);
+  return wrap;
 }
 
 function setStatus(msg, tone = "") {
@@ -236,12 +252,12 @@ function renderBoard() {
       }
       const piece = game.at(f, r);
       if (piece) {
-        const img = document.createElement("img");
-        img.src = pieceSrc(piece.side, piece.kind);
-        img.alt = pieceLabel(piece);
-        img.draggable = false;
-        hit.appendChild(img);
+        hit.appendChild(makePieceEl(piece.side, piece.kind));
         hit.classList.add("has-piece", piece.side);
+        hit.setAttribute(
+          "aria-label",
+          `${pieceLabel(piece)} · 檔 ${f + 1} 列 ${r + 1}`,
+        );
       }
       boardEl.appendChild(hit);
     }

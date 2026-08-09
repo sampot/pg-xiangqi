@@ -207,12 +207,64 @@ main {
   z-index: 1;
 }
 
-.cell img {
-  width: 92%;
-  height: 92%;
-  object-fit: contain;
+/* Traditional disc: ink-green body + white face (rim／glyph by side) */
+.piece {
+  --piece-ink: #16362c;
+  --piece-face: #fffef8;
+  position: relative;
+  width: 94%;
+  height: 94%;
   pointer-events: none;
-  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.25));
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.32));
+}
+
+.piece-back {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(
+      120% 100% at 30% 22%,
+      #2f5c4c 0%,
+      var(--piece-ink) 42%,
+      #0c241c 100%
+    );
+  /* Second layer peeks as a dark-green crescent (piece thickness) */
+  transform: translate(14%, 16%);
+  box-shadow: inset 0 -2px 3px rgba(0, 0, 0, 0.45);
+}
+
+.piece-face {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: 50%;
+  background: var(--piece-face);
+  border: 3px solid var(--piece-rim);
+  color: var(--piece-rim);
+  display: grid;
+  place-items: center;
+  font-family:
+    "Songti TC",
+    "Noto Serif TC",
+    "Hiragino Mincho ProN",
+    "Iowan Old Style",
+    serif;
+  font-weight: 700;
+  font-size: clamp(0.95rem, 4.6vw, 1.45rem);
+  line-height: 1;
+  letter-spacing: 0;
+  box-shadow:
+    inset 0 0 0 1.75px var(--piece-rim),
+    inset 0 1px 0 rgba(255, 255, 255, 0.75);
+}
+
+.piece.red {
+  --piece-rim: #c41e3a;
+}
+
+.piece.black {
+  --piece-rim: #141414;
 }
 
 .cell.legal::after {
@@ -226,11 +278,12 @@ main {
 }
 
 .cell.legal.has-piece::after {
-  width: 86%;
-  height: 86%;
+  width: 94%;
+  height: 94%;
   background: transparent;
   border: 3px solid color-mix(in oklab, var(--legal) 85%, #fff);
   box-sizing: border-box;
+  z-index: 2;
 }
 
 .cell.selected {

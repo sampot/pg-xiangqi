@@ -57,7 +57,7 @@ python3 -m http.server 8080
 | `app.js` | 輸入、確認面板、AI 節奏 |
 | `xiangqi.js` | 規則、將軍／困斃、簡易 AI |
 | `audio.js` | Kenney 取樣＋合成備援 |
-| `assets/` | 棋盤／棋子／音效 |
+| `assets/` | 棋盤／音效／音樂 |
 | `functions.js` | Playgrounds 可選 stub |
 
 ## License

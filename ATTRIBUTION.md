@@ -2,13 +2,15 @@
 
 本遊戲使用的美術／音效／音樂（皆已拷貝至 `assets/`；非 runtime 依賴 playgrounds 庫）：
 
-## 棋盤／棋子
+## 棋盤
 
-- **來源主題：** [hartwork/xiangqi-setup](https://github.com/hartwork/xiangqi-setup) 之 CC0 主題
-  - 棋子：`playok_2014_chinese_noshadow`（原件 PlayOK；衍生 Sebastian Pipping）
-  - 棋盤：`clean_beta`（Sebastian Pipping）
+- **來源主題：** [hartwork/xiangqi-setup](https://github.com/hartwork/xiangqi-setup) 之 CC0 主題 `clean_beta`（Sebastian Pipping）
 - **授權：** [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)
-- 詳見 `assets/pieces/LICENSE.txt`、`assets/boards/LICENSE.txt`
+- 詳見 `assets/boards/LICENSE.txt`
+
+## 棋子
+
+- 傳統雙層圓棋（白底紅／黑圈字＋墨綠背面）為本專案 CSS 繪製，非第三方素材包。
 
 ## 音效
 
