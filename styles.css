@@ -206,11 +206,11 @@ main {
   user-select: none;
 }
 
-/* Carved board ink (coords + river) — high contrast on wood */
+/* Carved board ink (coords + river) — under pieces, as if cut into wood */
 .board-ink {
   position: absolute;
   inset: 0;
-  z-index: 2;
+  z-index: 0;
   pointer-events: none;
   font-family:
     "Songti TC",
