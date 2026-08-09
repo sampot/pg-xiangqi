@@ -240,7 +240,7 @@ main {
   z-index: 1;
   border-radius: 50%;
   background: var(--piece-face);
-  border: 3px solid var(--piece-rim);
+  border: none;
   color: var(--piece-rim);
   display: grid;
   place-items: center;
@@ -254,9 +254,12 @@ main {
   font-size: clamp(0.95rem, 4.6vw, 1.45rem);
   line-height: 1;
   letter-spacing: 0;
+  /* Outer white lip, then coloured ring (not flush to the rim) */
   box-shadow:
-    inset 0 0 0 1.75px var(--piece-rim),
-    inset 0 1px 0 rgba(255, 255, 255, 0.75);
+    inset 0 0 0 2.25px var(--piece-face),
+    inset 0 0 0 5px var(--piece-rim),
+    inset 0 0 0 6.5px var(--piece-rim),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55);
 }
 
 .piece.red {
