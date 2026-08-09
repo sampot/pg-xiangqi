@@ -13,8 +13,8 @@ import {
   positionKey,
   isPerpetualCheck,
   createsPerpetualCheck,
-  squareName,
-  formatMoveCoords,
+  fileNum,
+  formatTraditionalMove,
 } from "./xiangqi.js";
 
 describe("xiangqi starting position", () => {
@@ -85,12 +85,35 @@ describe("piece rules", () => {
   });
 });
 
-describe("coordinates", () => {
-  it("maps files a–i and ranks 0–9", () => {
-    expect(squareName(0, 0)).toBe("a0");
-    expect(squareName(4, 3)).toBe("e3");
-    expect(squareName(8, 9)).toBe("i9");
-    expect(formatMoveCoords({ f: 0, r: 3 }, { f: 0, r: 4 })).toBe("a3→a4");
+describe("traditional notation", () => {
+  it("numbers files right-to-left for each side", () => {
+    expect(fileNum("red", 8)).toBe(1);
+    expect(fileNum("red", 0)).toBe(9);
+    expect(fileNum("black", 0)).toBe(1);
+    expect(fileNum("black", 8)).toBe(9);
+  });
+
+  it("formats red pawn advance as 兵九進一", () => {
+    const b = startingBoard();
+    const note = formatTraditionalMove(
+      b,
+      { f: 0, r: 3 },
+      { f: 0, r: 4 },
+      { side: "red", kind: "pawn" },
+    );
+    expect(note).toBe("兵九進一");
+  });
+
+  it("formats cannon horizontal as 砲八平五-style", () => {
+    const b = startingBoard();
+    // black cannon at (1,7) = black file 二
+    const note = formatTraditionalMove(
+      b,
+      { f: 1, r: 7 },
+      { f: 4, r: 7 },
+      { side: "black", kind: "cannon" },
+    );
+    expect(note).toBe("砲二平五");
   });
 });
 
@@ -102,7 +125,7 @@ describe("XiangqiGame", () => {
     expect(g.click(0, 4).ok).toBe(true);
     expect(g.at(0, 4)?.kind).toBe("pawn");
     expect(g.turn).toBe("black");
-    expect(g.message).toContain("a3→a4");
+    expect(g.message).toBe("兵九進一");
   });
 
   it("detects check from chariot", () => {

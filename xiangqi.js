@@ -36,17 +36,76 @@ export function pieceLabel(p) {
   return p.side === "red" ? RED_LABEL[p.kind] : BLACK_LABEL[p.kind];
 }
 
-/** Board legend: files a–i (left→right), ranks 0–9 (red bottom→black top). */
-export function squareName(f, r) {
-  return `${String.fromCharCode(97 + f)}${r}`;
+/** 一路～九路（該方由右至左） */
+export const FILE_CN = ["", "一", "二", "三", "四", "五", "六", "七", "八", "九"];
+
+/**
+ * File number 1–9 from that side's right to left.
+ * Red: board-right (f=8) = 一 … board-left (f=0) = 九
+ * Black: board-left (f=0) = 一 … board-right (f=8) = 九
+ * @param {Side} side
+ * @param {number} f
+ */
+export function fileNum(side, f) {
+  return side === "red" ? 9 - f : f + 1;
 }
 
 /**
+ * Traditional Chinese move text, e.g. 兵九進一、砲八平五、前馬退六.
+ * Must be called before the move is applied (for 前／後 disambiguation).
+ * @param {(Piece|null)[][]} board
  * @param {Pos} from
  * @param {Pos} to
+ * @param {Piece} piece
  */
-export function formatMoveCoords(from, to) {
-  return `${squareName(from.f, from.r)}→${squareName(to.f, to.r)}`;
+export function formatTraditionalMove(board, from, to, piece) {
+  const side = piece.side;
+  const label = pieceLabel(piece);
+  const toFile = fileNum(side, to.f);
+  const fromFile = fileNum(side, from.f);
+
+  /** @type {Pos[]} */
+  const same = [];
+  for (let r = 0; r < RANKS; r++) {
+    for (let f = 0; f < FILES; f++) {
+      const p = board[r][f];
+      if (p && p.side === side && p.kind === piece.kind) same.push({ f, r });
+    }
+  }
+  const onFile = same.filter((p) => p.f === from.f);
+
+  let head;
+  if (onFile.length >= 2) {
+    // 前方 = closer to opponent
+    const ordered = onFile.slice().sort((a, b) =>
+      side === "red" ? b.r - a.r : a.r - b.r,
+    );
+    const idx = ordered.findIndex((p) => p.f === from.f && p.r === from.r);
+    head = idx === 0 ? `前${label}` : `後${label}`;
+  } else {
+    head = `${label}${FILE_CN[fromFile]}`;
+  }
+
+  let verb;
+  let dest;
+  if (from.r === to.r) {
+    verb = "平";
+    dest = FILE_CN[toFile];
+  } else {
+    const forward = side === "red" ? to.r > from.r : to.r < from.r;
+    verb = forward ? "進" : "退";
+    if (
+      piece.kind === "horse" ||
+      piece.kind === "elephant" ||
+      piece.kind === "advisor"
+    ) {
+      dest = FILE_CN[toFile];
+    } else {
+      dest = FILE_CN[Math.abs(to.r - from.r)];
+    }
+  }
+
+  return `${head}${verb}${dest}`;
 }
 
 export function opposite(side) {
@@ -781,17 +840,17 @@ export class XiangqiGame {
     const moverSide = this.turn;
     const mover = this.at(move.from.f, move.from.r);
     const captured = this.at(move.to.f, move.to.r);
+    const note = mover
+      ? formatTraditionalMove(this.board, move.from, move.to, mover)
+      : "?";
+    const capLabel = captured ? pieceLabel(captured) : "";
+
     this.board = applyMove(this.board, move);
     this.lastMove = move;
     this.selected = null;
     this.moveCount += 1;
 
-    const label = mover ? pieceLabel(mover) : "?";
-    const capLabel = captured ? pieceLabel(captured) : "";
-    const coords = formatMoveCoords(move.from, move.to);
-    this.message = capLabel
-      ? `${label} 吃 ${capLabel} ${coords}`
-      : `${label} 移動 ${coords}`;
+    this.message = capLabel ? `${note}（吃${capLabel}）` : note;
 
     const next = opposite(moverSide);
     this.inCheckFlag = inCheck(this.board, next);
@@ -845,19 +904,13 @@ export class XiangqiGame {
     }
     const captured = this.at(move.to.f, move.to.r);
     const sideName = side === "red" ? "紅" : "黑";
-    const coords = formatMoveCoords(move.from, move.to);
     this._commitMove(move, events);
     if (this.status === "playing") {
       if (this.mode === "aivsai") {
-        this.message = captured
-          ? `${sideName}方 AI 吃子 ${coords}`
-          : `${sideName}方 AI 移動 ${coords}`;
+        this.message = `${sideName}方 AI：${this.message}`;
       } else {
-        this.message = captured
-          ? `電腦吃子 ${coords}`
-          : `電腦移動 ${coords}`;
+        this.message = `電腦：${this.message}`;
       }
-      if (this.inCheckFlag) this.message += " · 將軍";
     }
     if (captured && !events.includes("capture")) events.push("capture");
     else if (!captured && !events.includes("move")) events.push("move");
