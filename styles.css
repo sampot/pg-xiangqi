@@ -250,6 +250,9 @@ main {
 
 /* River band: midway between ranks 4 & 5 (viewBox y = 278.5 → 319.5/639) */
 .river-labels {
+  /* Near-black carved ink on wood (not the light frame coords in dark UI) */
+  color: #0a0806;
+  -webkit-text-stroke: 0.25px color-mix(in oklab, #0a0806 45%, transparent);
   font-size: clamp(0.95rem, 3.6vw, 1.35rem);
   letter-spacing: 0.35em;
 }
