@@ -310,23 +310,110 @@ export function applyMove(board, move) {
   return next;
 }
 
+const KIND_CODE = {
+  king: "K",
+  advisor: "A",
+  elephant: "E",
+  horse: "H",
+  chariot: "R",
+  cannon: "C",
+  pawn: "P",
+};
+
 /**
- * Legal moves for a piece (filters self-check and flying general).
+ * Position key: side-to-move + board (for repetition / 長將).
+ * @param {(Piece|null)[][]} board
+ * @param {Side} turn
+ */
+export function positionKey(board, turn) {
+  let s = turn === "red" ? "r|" : "b|";
+  for (let r = 0; r < RANKS; r++) {
+    for (let f = 0; f < FILES; f++) {
+      const p = board[r][f];
+      if (!p) {
+        s += ".";
+        continue;
+      }
+      const ch = KIND_CODE[p.kind];
+      s += p.side === "red" ? ch : ch.toLowerCase();
+    }
+  }
+  return s;
+}
+
+/**
+ * @typedef {{ key: string, mover: Side|null, gaveCheck: boolean }} HistEntry
+ */
+
+/**
+ * 長將：同一局面（含行棋方）第三次出現，且其間將軍方每步都在將軍。
+ * @param {HistEntry[]} history
+ */
+export function isPerpetualCheck(history) {
+  if (history.length < 2) return false;
+  const last = history[history.length - 1];
+  if (!last.gaveCheck || !last.mover) return false;
+  const checker = last.mover;
+
+  /** @type {number[]} */
+  const idxs = [];
+  for (let i = 0; i < history.length; i++) {
+    if (history[i].key === last.key) idxs.push(i);
+  }
+  if (idxs.length < 3) return false;
+
+  const start = idxs[idxs.length - 3];
+  let checks = 0;
+  for (let i = start + 1; i < history.length; i++) {
+    const h = history[i];
+    if (h.mover === checker) {
+      if (!h.gaveCheck) return false;
+      checks += 1;
+    }
+  }
+  return checks >= 2;
+}
+
+/**
+ * @param {(Piece|null)[][]} board
+ * @param {Move} move
+ * @param {HistEntry[]} history
+ */
+export function createsPerpetualCheck(board, move, history) {
+  const piece = board[move.from.r][move.from.f];
+  if (!piece) return false;
+  const next = applyMove(board, move);
+  const side = piece.side;
+  const opp = opposite(side);
+  if (kingsFaceEachOther(next) || inCheck(next, side)) return false;
+  if (!inCheck(next, opp)) return false;
+  const key = positionKey(next, opp);
+  return isPerpetualCheck([
+    ...history,
+    { key, mover: side, gaveCheck: true },
+  ]);
+}
+
+/**
+ * Legal moves for a piece (filters self-check, flying general, 長將).
  * @param {(Piece|null)[][]} board
  * @param {number} f
  * @param {number} r
+ * @param {HistEntry[]} [history]
  * @returns {Pos[]}
  */
-export function legalTargets(board, f, r) {
+export function legalTargets(board, f, r, history = []) {
   const piece = board[r][f];
   if (!piece) return [];
   const side = piece.side;
   /** @type {Pos[]} */
   const legal = [];
   for (const to of generatePieceTargets(board, f, r)) {
-    const next = applyMove(board, { from: { f, r }, to });
+    const move = { from: { f, r }, to };
+    const next = applyMove(board, move);
     if (kingsFaceEachOther(next)) continue;
     if (inCheck(next, side)) continue;
+    if (history.length && createsPerpetualCheck(board, move, history)) continue;
     legal.push(to);
   }
   return legal;
@@ -335,16 +422,17 @@ export function legalTargets(board, f, r) {
 /**
  * @param {(Piece|null)[][]} board
  * @param {Side} side
+ * @param {HistEntry[]} [history]
  * @returns {Move[]}
  */
-export function allLegalMoves(board, side) {
+export function allLegalMoves(board, side, history = []) {
   /** @type {Move[]} */
   const moves = [];
   for (let r = 0; r < RANKS; r++) {
     for (let f = 0; f < FILES; f++) {
       const p = board[r][f];
       if (!p || p.side !== side) continue;
-      for (const to of legalTargets(board, f, r)) {
+      for (const to of legalTargets(board, f, r, history)) {
         moves.push({ from: { f, r }, to });
       }
     }
@@ -353,14 +441,41 @@ export function allLegalMoves(board, side) {
 }
 
 /**
+ * True when side has moves that are legal except they would complete 長將.
  * @param {(Piece|null)[][]} board
  * @param {Side} side
- * @returns {'playing'|'checkmate'|'stalemate'}
+ * @param {HistEntry[]} history
  */
-export function outcomeFor(board, side) {
-  const moves = allLegalMoves(board, side);
+export function onlyPerpetualCheckMoves(board, side, history) {
+  let seen = false;
+  for (let r = 0; r < RANKS; r++) {
+    for (let f = 0; f < FILES; f++) {
+      const p = board[r][f];
+      if (!p || p.side !== side) continue;
+      for (const to of generatePieceTargets(board, f, r)) {
+        const move = { from: { f, r }, to };
+        const next = applyMove(board, move);
+        if (kingsFaceEachOther(next) || inCheck(next, side)) continue;
+        seen = true;
+        if (!createsPerpetualCheck(board, move, history)) return false;
+      }
+    }
+  }
+  return seen;
+}
+
+/**
+ * @param {(Piece|null)[][]} board
+ * @param {Side} side
+ * @param {HistEntry[]} [history]
+ * @returns {'playing'|'checkmate'|'stalemate'|'perpetual'}
+ */
+export function outcomeFor(board, side, history = []) {
+  const moves = allLegalMoves(board, side, history);
   if (moves.length) return "playing";
-  return inCheck(board, side) ? "checkmate" : "stalemate";
+  if (inCheck(board, side)) return "checkmate";
+  if (onlyPerpetualCheckMoves(board, side, history)) return "perpetual";
+  return "stalemate";
 }
 
 export const MATERIAL = {
@@ -406,10 +521,11 @@ export function evaluate(board, perspective) {
  * @param {(Piece|null)[][]} board
  * @param {Side} side
  * @param {number} [depth]
+ * @param {HistEntry[]} [history]
  * @returns {Move|null}
  */
-export function pickAiMove(board, side, depth = 2) {
-  const moves = allLegalMoves(board, side);
+export function pickAiMove(board, side, depth = 2, history = []) {
+  const moves = allLegalMoves(board, side, history);
   if (!moves.length) return null;
 
   /** @param {Move} m */
@@ -428,7 +544,20 @@ export function pickAiMove(board, side, depth = 2) {
 
   for (const m of moves) {
     const next = applyMove(board, m);
-    const score = -negamax(next, opp, depth - 1, -Infinity, Infinity, side);
+    const gaveCheck = inCheck(next, opp);
+    const nextHist = [
+      ...history,
+      { key: positionKey(next, opp), mover: side, gaveCheck },
+    ];
+    const score = -negamax(
+      next,
+      opp,
+      depth - 1,
+      -Infinity,
+      Infinity,
+      side,
+      nextHist,
+    );
     // slight jitter so games vary
     const jitter = (Math.random() - 0.5) * 3;
     if (score + jitter > bestScore) {
@@ -446,20 +575,21 @@ export function pickAiMove(board, side, depth = 2) {
  * @param {number} alpha
  * @param {number} beta
  * @param {Side} rootSide
+ * @param {HistEntry[]} history
  */
-function negamax(board, side, depth, alpha, beta, rootSide) {
-  const state = outcomeFor(board, side);
+function negamax(board, side, depth, alpha, beta, rootSide, history) {
+  const state = outcomeFor(board, side, history);
   if (state === "checkmate") {
     // side to move is mated
     return side === rootSide ? -20000 - depth : 20000 + depth;
   }
-  if (state === "stalemate") {
-    // 困毙：無棋可走判負
+  if (state === "stalemate" || state === "perpetual") {
+    // 困毙／只能長將：無棋可走判負
     return side === rootSide ? -19000 - depth : 19000 + depth;
   }
   if (depth <= 0) return evaluate(board, rootSide) * (side === rootSide ? 1 : -1);
 
-  const moves = allLegalMoves(board, side);
+  const moves = allLegalMoves(board, side, history);
   moves.sort((a, b) => {
     const ca = board[a.to.r][a.to.f];
     const cb = board[b.to.r][b.to.f];
@@ -469,7 +599,13 @@ function negamax(board, side, depth, alpha, beta, rootSide) {
   let best = -Infinity;
   for (const m of moves) {
     const next = applyMove(board, m);
-    const score = -negamax(next, opposite(side), depth - 1, -beta, -alpha, rootSide);
+    const opp = opposite(side);
+    const gaveCheck = inCheck(next, opp);
+    const nextHist = [
+      ...history,
+      { key: positionKey(next, opp), mover: side, gaveCheck },
+    ];
+    const score = -negamax(next, opp, depth - 1, -beta, -alpha, rootSide, nextHist);
     if (score > best) best = score;
     if (best > alpha) alpha = best;
     if (alpha >= beta) break;
@@ -512,6 +648,10 @@ export class XiangqiGame {
     this.aiThinking = false;
     this.moveCount = 0;
     this.inCheckFlag = false;
+    /** @type {HistEntry[]} */
+    this.history = [
+      { key: positionKey(this.board, this.turn), mover: null, gaveCheck: false },
+    ];
   }
 
   get aiSide() {
@@ -532,7 +672,12 @@ export class XiangqiGame {
 
   highlights() {
     if (!this.selected) return [];
-    return legalTargets(this.board, this.selected.f, this.selected.r);
+    return legalTargets(
+      this.board,
+      this.selected.f,
+      this.selected.r,
+      this.history,
+    );
   }
 
   /**
@@ -560,7 +705,7 @@ export class XiangqiGame {
 
     if (this.selected) {
       const from = this.selected;
-      const legal = legalTargets(this.board, from.f, from.r);
+      const legal = legalTargets(this.board, from.f, from.r, this.history);
       const hit = legal.find((t) => t.f === f && t.r === r);
       if (!hit) {
         this.selected = null;
@@ -578,10 +723,49 @@ export class XiangqiGame {
   }
 
   /**
+   * @param {Side} winner
+   * @param {string} how — 將死／困斃／長將
+   * @param {string[]} events
+   */
+  _finish(winner, how, events) {
+    this.winner = winner;
+    const name = winner === "red" ? "紅" : "黑";
+    const reason =
+      how === "長將" ? "對方長將" : how === "將死" ? "將死" : "困斃";
+    if (this.mode === "hotseat" || this.mode === "aivsai") {
+      this.status = "win";
+      this.message =
+        this.mode === "aivsai"
+          ? `AI 對弈結束 · ${name}方獲勝（${reason}）`
+          : `${name}方獲勝（${reason}）`;
+      events.push("win");
+    } else if (winner === this.playerSide) {
+      this.status = "win";
+      this.message =
+        how === "長將"
+          ? "對方長將，你贏了"
+          : how === "將死"
+            ? "將軍！你贏了"
+            : "對方困斃，你贏了";
+      events.push("win");
+    } else {
+      this.status = "lose";
+      this.message =
+        how === "長將"
+          ? "長將禁手，你輸了"
+          : how === "將死"
+            ? "被將死了"
+            : "無棋可走，你輸了";
+      events.push("lose");
+    }
+  }
+
+  /**
    * @param {Move} move
    * @param {string[]} events
    */
   _commitMove(move, events) {
+    const moverSide = this.turn;
     const mover = this.at(move.from.f, move.from.r);
     const captured = this.at(move.to.f, move.to.r);
     this.board = applyMove(this.board, move);
@@ -593,31 +777,26 @@ export class XiangqiGame {
     const capLabel = captured ? pieceLabel(captured) : "";
     this.message = capLabel ? `${label} 吃 ${capLabel}` : `${label} 移動`;
 
-    const next = opposite(this.turn);
-    const state = outcomeFor(this.board, next);
+    const next = opposite(moverSide);
     this.inCheckFlag = inCheck(this.board, next);
+    this.history.push({
+      key: positionKey(this.board, next),
+      mover: moverSide,
+      gaveCheck: this.inCheckFlag,
+    });
 
-    if (state === "checkmate" || state === "stalemate") {
-      const winner = this.turn;
-      this.winner = winner;
-      const name = winner === "red" ? "紅" : "黑";
-      const how = state === "checkmate" ? "將死" : "困斃";
-      if (this.mode === "hotseat" || this.mode === "aivsai") {
-        this.status = "win";
-        this.message =
-          this.mode === "aivsai"
-            ? `AI 對弈結束 · ${name}方${how}獲勝`
-            : `${name}方${how}獲勝`;
-        events.push("win");
-      } else if (winner === this.playerSide) {
-        this.status = "win";
-        this.message = state === "checkmate" ? "將軍！你贏了" : "對方困斃，你贏了";
-        events.push("win");
-      } else {
-        this.status = "lose";
-        this.message = state === "checkmate" ? "被將死了" : "無棋可走，你輸了";
-        events.push("lose");
-      }
+    // 長將：連續重複將軍 → 將軍方負
+    if (this.inCheckFlag && isPerpetualCheck(this.history)) {
+      this._finish(next, "長將", events);
+      return;
+    }
+
+    const state = outcomeFor(this.board, next, this.history);
+    if (state === "checkmate" || state === "stalemate" || state === "perpetual") {
+      const how =
+        state === "checkmate" ? "將死" : state === "perpetual" ? "長將" : "困斃";
+      // 長將：將軍方（即將再將軍者＝next）負 → moverSide 勝
+      this._finish(moverSide, how, events);
       return;
     }
 
@@ -641,18 +820,11 @@ export class XiangqiGame {
     if (this.mode === "ai" && this.turn !== this.aiSide) return { events };
 
     const side = this.turn;
-    const move = pickAiMove(this.board, side, depth);
+    const move = pickAiMove(this.board, side, depth, this.history);
     if (!move) {
-      this.winner = opposite(side);
-      if (this.mode === "aivsai") {
-        this.status = "win";
-        this.message = `AI 對弈結束 · ${this.winner === "red" ? "紅" : "黑"}方獲勝`;
-        events.push("win");
-      } else {
-        this.status = "win";
-        this.message = "電腦無棋可走，你贏了";
-        events.push("win");
-      }
+      const state = outcomeFor(this.board, side, this.history);
+      const how = state === "perpetual" ? "長將" : "困斃";
+      this._finish(opposite(side), how, events);
       return { events };
     }
     const captured = this.at(move.to.f, move.to.r);

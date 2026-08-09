@@ -10,6 +10,9 @@ import {
   findKing,
   generatePieceTargets,
   kingsFaceEachOther,
+  positionKey,
+  isPerpetualCheck,
+  createsPerpetualCheck,
 } from "./xiangqi.js";
 
 describe("xiangqi starting position", () => {
@@ -140,5 +143,83 @@ describe("XiangqiGame", () => {
     expect(r2.events.length).toBeGreaterThan(0);
     expect(g.turn).toBe("red");
     expect(g.moveCount).toBe(2);
+  });
+});
+
+describe("長將 perpetual check", () => {
+  function empty() {
+    const b = startingBoard();
+    for (let r = 0; r < 10; r++) for (let f = 0; f < 9; f++) b[r][f] = null;
+    return b;
+  }
+
+  it("detects threefold repeating checks", () => {
+    /** @type {import('./xiangqi.js').HistEntry[]} */
+    const hist = [];
+    const keyA = "b|A";
+    const keyB = "r|B";
+    // cycle: red checks to A, black replies to B, red checks to A, ...
+    hist.push({ key: keyA, mover: "red", gaveCheck: true });
+    hist.push({ key: keyB, mover: "black", gaveCheck: false });
+    hist.push({ key: keyA, mover: "red", gaveCheck: true });
+    hist.push({ key: keyB, mover: "black", gaveCheck: false });
+    expect(isPerpetualCheck(hist)).toBe(false);
+    hist.push({ key: keyA, mover: "red", gaveCheck: true });
+    expect(isPerpetualCheck(hist)).toBe(true);
+  });
+
+  it("forbids the third repeating check as a legal move", () => {
+    const g = new XiangqiGame();
+    g.reset("hotseat");
+    const b = empty();
+    // Red king off-file so black can shuttle 3↔4 without flying generals
+    b[0][5] = { side: "red", kind: "king" };
+    b[9][4] = { side: "black", kind: "king" };
+    b[7][4] = { side: "red", kind: "chariot" };
+    g.board = b;
+    g.turn = "red";
+    g.history = [
+      { key: positionKey(b, "red"), mover: null, gaveCheck: false },
+    ];
+
+    // Red chariot checks on file 4
+    g.click(4, 7);
+    expect(g.click(4, 8).ok).toBe(true);
+    expect(g.inCheckFlag).toBe(true);
+
+    // Black king steps to file 3
+    g.click(4, 9);
+    expect(g.click(3, 9).ok).toBe(true);
+
+    // Red chariot follows to file 3 — check
+    g.click(4, 8);
+    expect(g.click(3, 8).ok).toBe(true);
+
+    // Black king back to file 4
+    g.click(3, 9);
+    expect(g.click(4, 9).ok).toBe(true);
+
+    // Red chariot back to file 4 — 2nd occurrence of that check position
+    g.click(3, 8);
+    expect(g.click(4, 8).ok).toBe(true);
+
+    // Black king to file 3 again
+    g.click(4, 9);
+    expect(g.click(3, 9).ok).toBe(true);
+
+    // Red checks file 3 again (2nd time) — still allowed
+    g.click(4, 8);
+    expect(g.click(3, 8).ok).toBe(true);
+
+    // Black back to file 4
+    g.click(3, 9);
+    expect(g.click(4, 9).ok).toBe(true);
+
+    // Red would check file 4 for the 3rd time — 長將, illegal
+    const move = { from: { f: 3, r: 8 }, to: { f: 4, r: 8 } };
+    expect(createsPerpetualCheck(g.board, move, g.history)).toBe(true);
+    expect(
+      legalTargets(g.board, 3, 8, g.history).some((t) => t.f === 4 && t.r === 8),
+    ).toBe(false);
   });
 });
