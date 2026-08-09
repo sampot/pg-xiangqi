@@ -212,8 +212,9 @@ main {
   --piece-ink: #16362c;
   --piece-face: #fffef8;
   position: relative;
-  width: 94%;
-  height: 94%;
+  /* Keep under grid spacing so neighbours don't overlap */
+  width: 84%;
+  height: 84%;
   pointer-events: none;
   filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.22));
 }
