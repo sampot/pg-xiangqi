@@ -282,8 +282,8 @@ main {
 }
 
 .cell.legal.has-piece::after {
-  width: 94%;
-  height: 94%;
+  width: 86%;
+  height: 86%;
   background: transparent;
   border: 3px solid color-mix(in oklab, var(--legal) 85%, #fff);
   box-sizing: border-box;
