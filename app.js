@@ -1,15 +1,17 @@
 import { XiangqiAudio } from "./audio.js";
 import { XiangqiGame, FILES, RANKS, pieceLabel } from "./xiangqi.js";
 
-/** clean_beta board.ini against viewBox 542×589 */
-const BOARD_W = 542;
-const BOARD_H = 589;
+/** Grid from board.ini; viewBox `-4 -41 520 639` → L/R 36px, T/B 72px */
+const BOARD_W = 520;
+const BOARD_H = 639;
+const VIEW_X = -4;
+const VIEW_Y = -41;
 const GRID = { left: 32, top: 31, width: 448, height: 495 };
 const STEP_X = GRID.width / 8;
 const STEP_Y = GRID.height / 9;
 
-/** @type {Record<'slow'|'normal'|'fast', number>} */
-const AI_VS_AI_DELAY = { slow: 900, normal: 480, fast: 220 };
+/** Think / step delay by strength (ms) */
+const AI_THINK_MS = { easy: 240, normal: 420, hard: 700 };
 
 const audio = new XiangqiAudio();
 const game = new XiangqiGame();
@@ -27,13 +29,20 @@ const btnPause = document.getElementById("btn-pause");
 const btnModeAi = document.getElementById("btn-mode-ai");
 const btnModeHot = document.getElementById("btn-mode-hot");
 const btnModeAivsai = document.getElementById("btn-mode-aivsai");
-const speedRow = document.getElementById("speed-row");
-const speedEl = document.getElementById("speed");
+const levelRow = document.getElementById("level-row");
+const levelEl = document.getElementById("ai-level");
 const confirmEl = document.getElementById("confirm");
 const confirmTitle = document.getElementById("confirm-title");
 const confirmBody = document.getElementById("confirm-body");
 const confirmOk = document.getElementById("confirm-ok");
 const confirmCancel = document.getElementById("confirm-cancel");
+
+/** @returns {'easy'|'normal'|'hard'} */
+function aiLevel() {
+  const v = levelEl.value;
+  if (v === "easy" || v === "hard") return v;
+  return "normal";
+}
 
 /** @type {ReturnType<typeof setTimeout> | null} */
 let aiTimer = null;
@@ -50,8 +59,8 @@ function pointStyle(f, r) {
   const x = GRID.left + f * STEP_X;
   const y = GRID.top + (9 - r) * STEP_Y;
   return {
-    left: `${(x / BOARD_W) * 100}%`,
-    top: `${(y / BOARD_H) * 100}%`,
+    left: `${((x - VIEW_X) / BOARD_W) * 100}%`,
+    top: `${((y - VIEW_Y) / BOARD_H) * 100}%`,
   };
 }
 
@@ -69,8 +78,12 @@ function makePieceEl(side, kind) {
 
   const face = document.createElement("span");
   face.className = "piece-face";
-  face.textContent = pieceLabel({ side, kind });
 
+  const glyph = document.createElement("span");
+  glyph.className = "piece-glyph";
+  glyph.textContent = pieceLabel({ side, kind });
+
+  face.append(glyph);
   wrap.append(back, face);
   return wrap;
 }
@@ -113,9 +126,10 @@ function syncHud() {
   btnModeAivsai.setAttribute("aria-pressed", game.mode === "aivsai" ? "true" : "false");
 
   const isWatch = game.mode === "aivsai";
+  const usesAi = game.mode === "ai" || game.mode === "aivsai";
   btnResign.hidden = isWatch;
   btnPause.hidden = !isWatch;
-  speedRow.hidden = !isWatch;
+  levelRow.hidden = !usesAi;
   if (isWatch) {
     btnPause.textContent = aiVsAiRunning ? "暫停" : "繼續";
     btnPause.setAttribute("aria-pressed", aiVsAiRunning ? "true" : "false");
@@ -156,17 +170,19 @@ function scheduleHumanAi() {
   clearAiTimer();
   if (game.status !== "playing" || game.mode !== "ai") return;
   if (game.turn !== game.aiSide) return;
+  const level = aiLevel();
   game.aiThinking = true;
   syncHud();
   renderBoard();
+  const delay = AI_THINK_MS[level] + Math.random() * 160;
   aiTimer = setTimeout(() => {
-    const { events } = game.aiMove(2);
+    const { events } = game.aiMove(level);
     game.aiThinking = false;
     handleEvents(events);
     syncHud();
     renderBoard();
     if (game.status === "playing" && game.turn === game.aiSide) scheduleHumanAi();
-  }, 380 + Math.random() * 280);
+  }, delay);
 }
 
 function scheduleAiVsAi() {
@@ -176,18 +192,18 @@ function scheduleAiVsAi() {
     syncHud();
     return;
   }
+  const level = aiLevel();
   game.aiThinking = true;
   syncHud();
   renderBoard();
-  const key = /** @type {'slow'|'normal'|'fast'} */ (speedEl.value || "normal");
-  const delay = AI_VS_AI_DELAY[key] ?? AI_VS_AI_DELAY.normal;
+  const delay = AI_THINK_MS[level] + Math.random() * 120;
   aiTimer = setTimeout(() => {
     if (!aiVsAiRunning || game.mode !== "aivsai") {
       game.aiThinking = false;
       syncHud();
       return;
     }
-    const { events } = game.aiMove(2);
+    const { events } = game.aiMove(level);
     game.aiThinking = false;
     handleEvents(events);
     syncHud();
@@ -227,7 +243,7 @@ function renderBoard() {
   const sel = game.selected;
   const last = game.lastMove;
 
-  boardEl.replaceChildren();
+  boardEl.querySelectorAll(".cell").forEach((el) => el.remove());
 
   for (let r = 0; r < RANKS; r++) {
     for (let f = 0; f < FILES; f++) {
@@ -369,7 +385,7 @@ btnPause.addEventListener("click", async () => {
   }
 });
 
-speedEl.addEventListener("change", async () => {
+levelEl.addEventListener("change", async () => {
   await audio.unlock();
   if (game.mode === "aivsai" && aiVsAiRunning && game.status === "playing") {
     scheduleAiVsAi();
@@ -391,7 +407,7 @@ btnModeHot.addEventListener("click", async () => {
 btnModeAivsai.addEventListener("click", async () => {
   await audio.unlock();
   if (game.mode === "aivsai") return;
-  askConfirm("改為 AI 對 AI？", "將開新局，雙方皆由電腦自動下棋，可暫停／調速。", () =>
+  askConfirm("改為 AI 對 AI？", "將開新局，雙方皆由電腦自動下棋，可暫停；棋力同上。", () =>
     switchMode("aivsai"),
   );
 });

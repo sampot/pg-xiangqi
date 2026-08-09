@@ -36,13 +36,15 @@ export function pieceLabel(p) {
   return p.side === "red" ? RED_LABEL[p.kind] : BLACK_LABEL[p.kind];
 }
 
-/** 一路～九路（該方由右至左） */
+/** 紅方記譜：一路～九路（由右至左） */
 export const FILE_CN = ["", "一", "二", "三", "四", "五", "六", "七", "八", "九"];
+/** 黑方記譜：1～9（由右至左，即棋盤左→右） */
+export const FILE_AR = ["", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
 
 /**
  * File number 1–9 from that side's right to left.
- * Red: board-right (f=8) = 一 … board-left (f=0) = 九
- * Black: board-left (f=0) = 一 … board-right (f=8) = 九
+ * Red: board-right (f=8) = 1 … board-left (f=0) = 9
+ * Black: board-left (f=0) = 1 … board-right (f=8) = 9
  * @param {Side} side
  * @param {number} f
  */
@@ -51,7 +53,16 @@ export function fileNum(side, f) {
 }
 
 /**
- * Traditional Chinese move text, e.g. 兵九進一、砲八平五、前馬退六.
+ * Display digit for notation: red → 一…九, black → 1…9.
+ * @param {Side} side
+ * @param {number} n 1–9
+ */
+export function fileLabel(side, n) {
+  return side === "red" ? FILE_CN[n] : FILE_AR[n];
+}
+
+/**
+ * Traditional Chinese move text, e.g. 兵九進一、砲8平5、前馬退六.
  * Must be called before the move is applied (for 前／後 disambiguation).
  * @param {(Piece|null)[][]} board
  * @param {Pos} from
@@ -83,14 +94,14 @@ export function formatTraditionalMove(board, from, to, piece) {
     const idx = ordered.findIndex((p) => p.f === from.f && p.r === from.r);
     head = idx === 0 ? `前${label}` : `後${label}`;
   } else {
-    head = `${label}${FILE_CN[fromFile]}`;
+    head = `${label}${fileLabel(side, fromFile)}`;
   }
 
   let verb;
   let dest;
   if (from.r === to.r) {
     verb = "平";
-    dest = FILE_CN[toFile];
+    dest = fileLabel(side, toFile);
   } else {
     const forward = side === "red" ? to.r > from.r : to.r < from.r;
     verb = forward ? "進" : "退";
@@ -99,9 +110,9 @@ export function formatTraditionalMove(board, from, to, piece) {
       piece.kind === "elephant" ||
       piece.kind === "advisor"
     ) {
-      dest = FILE_CN[toFile];
+      dest = fileLabel(side, toFile);
     } else {
-      dest = FILE_CN[Math.abs(to.r - from.r)];
+      dest = fileLabel(side, Math.abs(to.r - from.r));
     }
   }
 
@@ -588,17 +599,54 @@ export function evaluate(board, perspective) {
   return score;
 }
 
+/** @typedef {'easy'|'normal'|'hard'} AiLevel */
+
 /**
- * Simple minimax with capture ordering; depth 2 default.
+ * @typedef {{ depth: number, blunder: number, topFrac: number, jitter: number }} AiLevelConfig
+ */
+
+/** 簡易／一般／高檔 — depth + 偶爾放水／選次佳 */
+export const AI_LEVELS = /** @type {Record<AiLevel, AiLevelConfig>} */ ({
+  easy: { depth: 1, blunder: 0.42, topFrac: 0.55, jitter: 55 },
+  normal: { depth: 2, blunder: 0.08, topFrac: 0.22, jitter: 10 },
+  hard: { depth: 3, blunder: 0, topFrac: 0, jitter: 0 },
+});
+
+/**
+ * @param {number|AiLevel|AiLevelConfig} [depthOrLevel]
+ * @returns {AiLevelConfig}
+ */
+export function resolveAiLevel(depthOrLevel = "normal") {
+  if (typeof depthOrLevel === "number") {
+    return { depth: depthOrLevel, blunder: 0, topFrac: 0, jitter: 0 };
+  }
+  if (typeof depthOrLevel === "string") {
+    return AI_LEVELS[depthOrLevel] ?? AI_LEVELS.normal;
+  }
+  return {
+    depth: depthOrLevel.depth ?? 2,
+    blunder: depthOrLevel.blunder ?? 0,
+    topFrac: depthOrLevel.topFrac ?? 0,
+    jitter: depthOrLevel.jitter ?? 0,
+  };
+}
+
+/**
+ * Minimax with capture ordering. Pass depth (number) or AiLevel / config.
  * @param {(Piece|null)[][]} board
  * @param {Side} side
- * @param {number} [depth]
+ * @param {number|AiLevel|AiLevelConfig} [depthOrLevel]
  * @param {HistEntry[]} [history]
  * @returns {Move|null}
  */
-export function pickAiMove(board, side, depth = 2, history = []) {
+export function pickAiMove(board, side, depthOrLevel = "normal", history = []) {
+  const cfg = resolveAiLevel(depthOrLevel);
   const moves = allLegalMoves(board, side, history);
   if (!moves.length) return null;
+
+  if (Math.random() < cfg.blunder) {
+    return moves[(Math.random() * moves.length) | 0];
+  }
 
   /** @param {Move} m */
   const orderKey = (m) => {
@@ -611,8 +659,8 @@ export function pickAiMove(board, side, depth = 2, history = []) {
   moves.sort((a, b) => orderKey(b) - orderKey(a));
 
   const opp = opposite(side);
-  let best = moves[0];
-  let bestScore = -Infinity;
+  /** @type {{ move: Move, score: number }[]} */
+  const ranked = [];
 
   for (const m of moves) {
     const next = applyMove(board, m);
@@ -624,42 +672,50 @@ export function pickAiMove(board, side, depth = 2, history = []) {
     const score = -negamax(
       next,
       opp,
-      depth - 1,
+      cfg.depth - 1,
       -Infinity,
       Infinity,
-      side,
       nextHist,
     );
-    // slight jitter so games vary
-    const jitter = (Math.random() - 0.5) * 3;
-    if (score + jitter > bestScore) {
-      bestScore = score + jitter;
-      best = m;
-    }
+    const jitter =
+      Math.abs(score) >= 10000 || cfg.jitter <= 0
+        ? 0
+        : (Math.random() - 0.5) * cfg.jitter;
+    ranked.push({ move: m, score: score + jitter });
   }
-  return best;
+
+  ranked.sort((a, b) => b.score - a.score);
+
+  // Never dilute a forced mate / 困斃 win
+  if (ranked[0].score >= 10000) return ranked[0].move;
+
+  if (cfg.topFrac <= 0) return ranked[0].move;
+
+  const n = Math.max(1, Math.ceil(ranked.length * cfg.topFrac));
+  const pool = ranked.slice(0, n);
+  return pool[(Math.random() * pool.length) | 0].move;
 }
 
 /**
+ * Negamax: return value is always from `side` (to move) perspective.
  * @param {(Piece|null)[][]} board
  * @param {Side} side to move
  * @param {number} depth
  * @param {number} alpha
  * @param {number} beta
- * @param {Side} rootSide
  * @param {HistEntry[]} history
  */
-function negamax(board, side, depth, alpha, beta, rootSide, history) {
+function negamax(board, side, depth, alpha, beta, history) {
   const state = outcomeFor(board, side, history);
   if (state === "checkmate") {
-    // side to move is mated
-    return side === rootSide ? -20000 - depth : 20000 + depth;
+    // Side to move is mated — prefer faster mates (more depth left → worse for mated).
+    return -20000 - depth;
   }
   if (state === "stalemate" || state === "perpetual") {
-    // 困毙／只能長將：無棋可走判負
-    return side === rootSide ? -19000 - depth : 19000 + depth;
+    // 困斃／只能長將：無棋可走判負
+    return -19000 - depth;
   }
-  if (depth <= 0) return evaluate(board, rootSide) * (side === rootSide ? 1 : -1);
+  if (depth <= 0) return evaluate(board, side);
 
   const moves = allLegalMoves(board, side, history);
   moves.sort((a, b) => {
@@ -677,7 +733,7 @@ function negamax(board, side, depth, alpha, beta, rootSide, history) {
       ...history,
       { key: positionKey(next, opp), mover: side, gaveCheck },
     ];
-    const score = -negamax(next, opp, depth - 1, -beta, -alpha, rootSide, nextHist);
+    const score = -negamax(next, opp, depth - 1, -beta, -alpha, nextHist);
     if (score > best) best = score;
     if (best > alpha) alpha = best;
     if (alpha >= beta) break;
@@ -884,10 +940,10 @@ export class XiangqiGame {
 
   /**
    * AI plays one move for the side to move (human-vs-AI: only aiSide; aivsai: either).
-   * @param {number} [depth]
+   * @param {number|AiLevel|AiLevelConfig} [level]
    * @returns {{ events: string[] }}
    */
-  aiMove(depth = 2) {
+  aiMove(level = "normal") {
     /** @type {string[]} */
     const events = [];
     if (this.status !== "playing") return { events };
@@ -895,7 +951,7 @@ export class XiangqiGame {
     if (this.mode === "ai" && this.turn !== this.aiSide) return { events };
 
     const side = this.turn;
-    const move = pickAiMove(this.board, side, depth, this.history);
+    const move = pickAiMove(this.board, side, level, this.history);
     if (!move) {
       const state = outcomeFor(this.board, side, this.history);
       const how = state === "perpetual" ? "長將" : "困斃";

@@ -48,12 +48,12 @@
         </button>
       </div>
 
-      <div id="speed-row" class="speed-row" hidden>
-        <label for="speed">速度</label>
-        <select id="speed" aria-label="AI 對 AI 速度">
-          <option value="slow">慢</option>
-          <option value="normal" selected>中</option>
-          <option value="fast">快</option>
+      <div id="level-row" class="level-row">
+        <label for="ai-level">棋力</label>
+        <select id="ai-level" aria-label="AI 棋力">
+          <option value="easy">簡易</option>
+          <option value="normal" selected>一般</option>
+          <option value="hard">高檔</option>
         </select>
       </div>
 
@@ -64,10 +64,36 @@
             class="board"
             role="grid"
             aria-label="象棋棋盤 九路十列"
-            style="--board-url: url('./assets/boards/board.svg?v=cn-files')"
-          ></div>
-          <div class="file-labels" aria-hidden="true">
-            <span>九</span><span>八</span><span>七</span><span>六</span><span>五</span><span>四</span><span>三</span><span>二</span><span>一</span>
+            style="--board-url: url('./assets/boards/board.svg?v=frame-lr-half')"
+          >
+            <!-- Carved on frame: black files left→right 1–9 -->
+            <div class="board-ink file-labels file-labels-top" aria-hidden="true">
+              <span style="--f: 0">1</span>
+              <span style="--f: 1">2</span>
+              <span style="--f: 2">3</span>
+              <span style="--f: 3">4</span>
+              <span style="--f: 4">5</span>
+              <span style="--f: 5">6</span>
+              <span style="--f: 6">7</span>
+              <span style="--f: 7">8</span>
+              <span style="--f: 8">9</span>
+            </div>
+            <div class="board-ink river-labels" aria-hidden="true">
+              <span class="chu">楚河</span>
+              <span class="han">漢界</span>
+            </div>
+            <!-- Carved on frame: red files left→right 九…一 -->
+            <div class="board-ink file-labels file-labels-bottom" aria-hidden="true">
+              <span style="--f: 0">九</span>
+              <span style="--f: 1">八</span>
+              <span style="--f: 2">七</span>
+              <span style="--f: 3">六</span>
+              <span style="--f: 4">五</span>
+              <span style="--f: 5">四</span>
+              <span style="--f: 6">三</span>
+              <span style="--f: 7">二</span>
+              <span style="--f: 8">一</span>
+            </div>
           </div>
         </div>
       </div>
@@ -81,7 +107,7 @@
       </div>
 
       <p class="hint">
-        點己方棋子再點目標格移動或吃子；合法格會提示。人機你執紅；AI 對 AI 可暫停與調速。將軍須應；不得長將（連續重複將軍）；無棋可走（困斃）判負。素材署名見 README。
+        點己方棋子再點目標格移動或吃子；合法格會提示。人機你執紅；棋力可調（簡易／一般／高檔）。AI 對 AI 可暫停。將軍須應；不得長將（連續重複將軍）；無棋可走（困斃）判負。素材署名見 README。
       </p>
     </main>
 

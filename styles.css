@@ -10,6 +10,7 @@
   --on-accent: #fff7ed;
   --accent-soft: color-mix(in oklab, var(--accent) 12%, var(--panel));
   --wood: #c4a574;
+  --board-ink: #120c08;
   --neon: #ca8a04;
   --danger: #b91c1c;
   --legal: #16a34a;
@@ -28,6 +29,7 @@
     --on-accent: #1c1410;
     --accent-soft: color-mix(in oklab, var(--accent) 16%, var(--panel));
     --wood: #5c4030;
+    --board-ink: #ffe7c2;
   }
 }
 
@@ -60,7 +62,7 @@ body {
 }
 
 main {
-  width: min(100%, 28rem);
+  width: min(100%, 34rem);
   margin: 0 auto;
   padding: 0.9rem 0.85rem 2rem;
   display: flex;
@@ -134,7 +136,7 @@ main {
   font-size: 0.95rem;
 }
 
-.speed-row {
+.level-row {
   display: flex;
   align-items: center;
   gap: 0.65rem;
@@ -143,14 +145,14 @@ main {
   font-size: 0.9rem;
 }
 
-.speed-row[hidden] {
+.level-row[hidden] {
   display: none;
 }
 
-.speed-row select {
+.level-row select {
   font: inherit;
   min-height: 2.75rem;
-  min-width: 5.5rem;
+  min-width: 6.5rem;
   padding: 0.35rem 0.65rem;
   border-radius: 0.55rem;
   border: 1px solid var(--line);
@@ -177,13 +179,21 @@ main {
 
 .board-wrap {
   position: relative;
-  width: min(100%, 26rem);
+  width: min(100%, 32rem);
 }
 
 .board {
+  /* viewBox `-4 -41 520 639`: L/R 36, T/B 72 (SVG user units) */
+  --board-w: 520;
+  --board-h: 639;
+  --frame-x: 36;
+  --frame-y: 72;
+  --grid-x: 36; /* first file x in viewBox space */
+  --step-x: 56;
+  --step-y: 55; /* grid height 495 / 9 */
   position: relative;
   width: 100%;
-  aspect-ratio: 542 / 589;
+  aspect-ratio: 520 / 639;
   background-color: var(--wood);
   background-image: var(--board-url);
   background-size: 100% 100%;
@@ -196,37 +206,83 @@ main {
   user-select: none;
 }
 
-/* Red-side file labels: 九…一 left→right (= 一…九 right→left) */
-.file-labels {
+/* Carved board ink (coords + river) — high contrast on wood */
+.board-ink {
   position: absolute;
-  z-index: 3;
-  left: calc(100% * 32 / 542);
-  width: calc(100% * 448 / 542);
-  bottom: calc(100% * 12 / 589);
-  display: flex;
-  justify-content: space-between;
+  inset: 0;
+  z-index: 2;
   pointer-events: none;
   font-family:
     "Songti TC",
     "Noto Serif TC",
     "Hiragino Mincho ProN",
-    serif;
-  font-size: clamp(0.72rem, 2.9vw, 1rem);
+    "Avenir Next",
+    sans-serif;
   font-weight: 700;
   line-height: 1;
-  color: #111;
-  text-align: center;
+  color: var(--board-ink);
+  opacity: 1;
+  -webkit-text-stroke: 0.3px color-mix(in oklab, var(--board-ink) 50%, transparent);
+}
+
+.file-labels {
+  font-size: clamp(0.72rem, 2.7vw, 0.98rem);
 }
 
 .file-labels span {
-  flex: 1;
+  position: absolute;
+  left: calc(100% * (var(--grid-x) + var(--f) * var(--step-x)) / var(--board-w));
+  transform: translate(-50%, -50%);
   text-align: center;
+}
+
+/* Outer rim of the wood frame — pieces protrude ~20px into the 72px band */
+.file-labels-top span {
+  top: calc(100% * 6 / var(--board-h));
+  transform: translate(-50%, 0);
+}
+
+.file-labels-bottom span {
+  top: auto;
+  bottom: calc(100% * 6 / var(--board-h));
+  transform: translate(-50%, 0);
+}
+
+/* River band: midway between ranks 4 & 5 (viewBox y = 278.5 → 319.5/639) */
+.river-labels {
+  font-size: clamp(0.95rem, 3.6vw, 1.35rem);
+  letter-spacing: 0.35em;
+}
+
+.river-labels span {
+  position: absolute;
+  top: calc(100% * 319.5 / var(--board-h));
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+
+.river-labels .chu {
+  /* center of left half (files 0–3) */
+  left: calc(100% * (var(--grid-x) + 1.5 * var(--step-x)) / var(--board-w));
+  letter-spacing: 0.45em;
+  padding-left: 0.45em;
+}
+
+.river-labels .han {
+  /* center of right half (files 5–8) */
+  left: calc(100% * (var(--grid-x) + 6.5 * var(--step-x)) / var(--board-w));
+  letter-spacing: 0.45em;
+  padding-left: 0.45em;
 }
 
 .cell {
   position: absolute;
-  width: 11.5%;
-  height: 10.5%;
+  /*
+   * Same SVG length on both axes → square hit target in CSS pixels
+   * (width % of board-w, height % of board-h).
+   */
+  width: calc(100% * var(--step-x) / var(--board-w));
+  height: calc(100% * var(--step-x) / var(--board-h));
   transform: translate(-50%, -50%);
   padding: 0;
   margin: 0;
@@ -239,14 +295,18 @@ main {
   z-index: 1;
 }
 
-/* Traditional disc: ink-green body + white face (rim／glyph by side) */
+/* Traditional disc: carved groove + paint fill (rim／glyph), ink-green body */
 .piece {
   --piece-ink: #16362c;
-  --piece-face: #fffef8;
+  --piece-face: #f7f1e4;
+  --piece-face-hi: #fffdf6;
+  --piece-face-lo: #e6dfd0;
+  --piece-paint: #1a1a1a;
   position: relative;
-  /* Keep under grid spacing so neighbours don't overlap */
-  width: 84%;
-  height: 84%;
+  /* Size by width only — aspect-ratio keeps a true circle */
+  width: 88%;
+  height: auto;
+  aspect-ratio: 1;
   pointer-events: none;
   filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.22));
 }
@@ -272,9 +332,37 @@ main {
   inset: 0;
   z-index: 1;
   border-radius: 50%;
-  background: var(--piece-face);
   border: none;
-  color: var(--piece-rim);
+  display: grid;
+  place-items: center;
+  /* Warm ivory face with soft dome */
+  background:
+    radial-gradient(
+      120% 110% at 32% 28%,
+      var(--piece-face-hi) 0%,
+      var(--piece-face) 52%,
+      var(--piece-face-lo) 100%
+    );
+  /*
+   * Carved ring: routed channel with paint rubbed into the recess.
+   * Outer bevel → groove wall → paint → inner wall → face floor.
+   */
+  box-shadow:
+    inset 0 2px 3px rgba(255, 255, 255, 0.8),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.16),
+    inset 0 0 0 1.75px var(--piece-face-hi),
+    inset 0 1.25px 1.5px 1.75px rgba(0, 0, 0, 0.38),
+    inset 0 -1px 1px 1.75px rgba(255, 255, 255, 0.55),
+    inset 0 0 0 4.75px var(--piece-paint),
+    inset 0 1px 0 4.75px rgba(255, 255, 255, 0.22),
+    inset 0 -1px 1px 4.75px rgba(0, 0, 0, 0.45),
+    inset 0 0 0 6.5px var(--piece-face),
+    inset 0 0 1.5px 6.5px rgba(0, 0, 0, 0.18);
+}
+
+/* Glyph: carved trough, then paint fill (cut first, colour in the recess) */
+.piece-glyph {
+  position: relative;
   display: grid;
   place-items: center;
   font-family:
@@ -287,20 +375,24 @@ main {
   font-size: clamp(0.95rem, 4.6vw, 1.45rem);
   line-height: 1;
   letter-spacing: 0;
-  /* Outer white lip, then coloured ring (not flush to the rim) */
-  box-shadow:
-    inset 0 0 0 2.25px var(--piece-face),
-    inset 0 0 0 5px var(--piece-rim),
-    inset 0 0 0 6.5px var(--piece-rim),
-    inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  color: var(--piece-paint);
+  /*
+   * Inset carve: light hits the lower wall of the cut (white below),
+   * upper wall stays in shade (dark above) — paint reads as recessed.
+   */
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.85),
+    0 -1px 0 rgba(0, 0, 0, 0.38),
+    1px 0 0 rgba(255, 255, 255, 0.25),
+    -1px 0 0 rgba(0, 0, 0, 0.22);
 }
 
 .piece.red {
-  --piece-rim: #c41e3a;
+  --piece-paint: #a81228;
 }
 
 .piece.black {
-  --piece-rim: #141414;
+  --piece-paint: #121212;
 }
 
 .cell.legal::after {
@@ -461,8 +553,12 @@ button:disabled {
 
 @media (min-width: 40rem) {
   main {
-    width: min(100%, 32rem);
+    width: min(100%, 38rem);
     padding-top: 1.25rem;
+  }
+
+  .board-wrap {
+    width: min(100%, 36rem);
   }
 
   .confirm {

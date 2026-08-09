@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   XiangqiGame,
   startingBoard,
+  emptyBoard,
   allLegalMoves,
   legalTargets,
   applyMove,
@@ -15,6 +16,9 @@ import {
   createsPerpetualCheck,
   fileNum,
   formatTraditionalMove,
+  pickAiMove,
+  resolveAiLevel,
+  AI_LEVELS,
 } from "./xiangqi.js";
 
 describe("xiangqi starting position", () => {
@@ -104,16 +108,27 @@ describe("traditional notation", () => {
     expect(note).toBe("兵九進一");
   });
 
-  it("formats cannon horizontal as 砲八平五-style", () => {
+  it("formats black moves with Arabic file digits", () => {
     const b = startingBoard();
-    // black cannon at (1,7) = black file 二
+    // black cannon at (1,7) = black file 2
     const note = formatTraditionalMove(
       b,
       { f: 1, r: 7 },
       { f: 4, r: 7 },
       { side: "black", kind: "cannon" },
     );
-    expect(note).toBe("砲二平五");
+    expect(note).toBe("砲2平5");
+  });
+
+  it("formats black pawn advance as 卒3進1", () => {
+    const b = startingBoard();
+    const note = formatTraditionalMove(
+      b,
+      { f: 2, r: 6 },
+      { f: 2, r: 5 },
+      { side: "black", kind: "pawn" },
+    );
+    expect(note).toBe("卒3進1");
   });
 });
 
@@ -164,6 +179,26 @@ describe("XiangqiGame", () => {
     expect(events.length).toBeGreaterThan(0);
     expect(g.moveCount).toBe(before + 1);
     expect(outcomeFor(g.board, "red")).toBe("playing");
+  });
+
+  it("AI takes mate in one instead of a quiet move", () => {
+    const b = emptyBoard();
+    b[0][3] = { side: "red", kind: "king" };
+    b[9][4] = { side: "black", kind: "king" };
+    b[9][0] = { side: "red", kind: "chariot" };
+    b[3][0] = { side: "red", kind: "pawn" }; // quiet alternative
+
+    const move = pickAiMove(b, "red", "hard", []);
+    expect(move).toEqual({ from: { f: 0, r: 9 }, to: { f: 4, r: 9 } });
+    expect(outcomeFor(applyMove(b, move), "black")).toBe("checkmate");
+  });
+
+  it("AI levels escalate search depth", () => {
+    expect(resolveAiLevel("easy").depth).toBe(1);
+    expect(resolveAiLevel("normal").depth).toBe(2);
+    expect(resolveAiLevel("hard").depth).toBe(3);
+    expect(AI_LEVELS.easy.blunder).toBeGreaterThan(AI_LEVELS.normal.blunder);
+    expect(AI_LEVELS.hard.blunder).toBe(0);
   });
 
   it("aivsai lets AI play both sides", () => {
