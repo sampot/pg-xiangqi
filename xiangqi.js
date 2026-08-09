@@ -36,6 +36,19 @@ export function pieceLabel(p) {
   return p.side === "red" ? RED_LABEL[p.kind] : BLACK_LABEL[p.kind];
 }
 
+/** Board legend: files a–i (left→right), ranks 0–9 (red bottom→black top). */
+export function squareName(f, r) {
+  return `${String.fromCharCode(97 + f)}${r}`;
+}
+
+/**
+ * @param {Pos} from
+ * @param {Pos} to
+ */
+export function formatMoveCoords(from, to) {
+  return `${squareName(from.f, from.r)}→${squareName(to.f, to.r)}`;
+}
+
 export function opposite(side) {
   return side === "red" ? "black" : "red";
 }
@@ -775,7 +788,10 @@ export class XiangqiGame {
 
     const label = mover ? pieceLabel(mover) : "?";
     const capLabel = captured ? pieceLabel(captured) : "";
-    this.message = capLabel ? `${label} 吃 ${capLabel}` : `${label} 移動`;
+    const coords = formatMoveCoords(move.from, move.to);
+    this.message = capLabel
+      ? `${label} 吃 ${capLabel} ${coords}`
+      : `${label} 移動 ${coords}`;
 
     const next = opposite(moverSide);
     this.inCheckFlag = inCheck(this.board, next);
@@ -829,14 +845,17 @@ export class XiangqiGame {
     }
     const captured = this.at(move.to.f, move.to.r);
     const sideName = side === "red" ? "紅" : "黑";
+    const coords = formatMoveCoords(move.from, move.to);
     this._commitMove(move, events);
     if (this.status === "playing") {
       if (this.mode === "aivsai") {
         this.message = captured
-          ? `${sideName}方 AI 吃子`
-          : `${sideName}方 AI 移動`;
+          ? `${sideName}方 AI 吃子 ${coords}`
+          : `${sideName}方 AI 移動 ${coords}`;
       } else {
-        this.message = captured ? "電腦吃子" : "電腦移動了一子";
+        this.message = captured
+          ? `電腦吃子 ${coords}`
+          : `電腦移動 ${coords}`;
       }
       if (this.inCheckFlag) this.message += " · 將軍";
     }

@@ -13,6 +13,8 @@ import {
   positionKey,
   isPerpetualCheck,
   createsPerpetualCheck,
+  squareName,
+  formatMoveCoords,
 } from "./xiangqi.js";
 
 describe("xiangqi starting position", () => {
@@ -83,6 +85,15 @@ describe("piece rules", () => {
   });
 });
 
+describe("coordinates", () => {
+  it("maps files a–i and ranks 0–9", () => {
+    expect(squareName(0, 0)).toBe("a0");
+    expect(squareName(4, 3)).toBe("e3");
+    expect(squareName(8, 9)).toBe("i9");
+    expect(formatMoveCoords({ f: 0, r: 3 }, { f: 0, r: 4 })).toBe("a3→a4");
+  });
+});
+
 describe("XiangqiGame", () => {
   it("selects and moves a pawn", () => {
     const g = new XiangqiGame();
@@ -91,6 +102,7 @@ describe("XiangqiGame", () => {
     expect(g.click(0, 4).ok).toBe(true);
     expect(g.at(0, 4)?.kind).toBe("pawn");
     expect(g.turn).toBe("black");
+    expect(g.message).toContain("a3→a4");
   });
 
   it("detects check from chariot", () => {
