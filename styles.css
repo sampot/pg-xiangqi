@@ -1,0 +1,354 @@
+:root {
+  color-scheme: light dark;
+  --bg: #f3efe6;
+  --panel: #fffaf2;
+  --text: #1c1410;
+  --muted: #6b5a4e;
+  --line: #d9cbb8;
+  --accent: #9a3412;
+  --accent-dim: #7c2d12;
+  --on-accent: #fff7ed;
+  --accent-soft: color-mix(in oklab, var(--accent) 12%, var(--panel));
+  --wood: #c4a574;
+  --neon: #ca8a04;
+  --danger: #b91c1c;
+  --legal: #16a34a;
+  --select: #ea580c;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #120e0b;
+    --panel: #1c1612;
+    --text: #f3e8d8;
+    --muted: #b8a090;
+    --line: #3a2e24;
+    --accent: #fb923c;
+    --accent-dim: #c2410c;
+    --on-accent: #1c1410;
+    --accent-soft: color-mix(in oklab, var(--accent) 16%, var(--panel));
+    --wood: #5c4030;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  font-family:
+    "Avenir Next",
+    "Segoe UI",
+    "PingFang TC",
+    "Noto Sans TC",
+    sans-serif;
+  background:
+    radial-gradient(
+      900px 480px at 80% -8%,
+      color-mix(in oklab, var(--accent) 16%, transparent),
+      transparent 55%
+    ),
+    radial-gradient(
+      700px 420px at 8% 100%,
+      color-mix(in oklab, var(--wood) 28%, transparent),
+      transparent 52%
+    ),
+    var(--bg);
+  color: var(--text);
+}
+
+main {
+  width: min(100%, 28rem);
+  margin: 0 auto;
+  padding: 0.9rem 0.85rem 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.hero h1 {
+  margin: 0;
+  font-family:
+    "Iowan Old Style",
+    Palatino,
+    "Songti TC",
+    "Noto Serif TC",
+    serif;
+  font-size: clamp(1.85rem, 5vw, 2.35rem);
+  letter-spacing: 0.18em;
+  text-align: center;
+}
+
+.tagline {
+  margin: 0.3rem 0 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.meter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem 1rem;
+  padding: 0.7rem 0.85rem;
+  background: color-mix(in oklab, var(--panel) 92%, transparent);
+  border: 1px solid var(--line);
+  border-radius: 0.85rem;
+}
+
+.meter-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 3.2rem;
+}
+
+.meter-item .label {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.meter-item strong {
+  font-size: 1.15rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.meter-actions {
+  margin-left: auto;
+}
+
+.mode-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.mode-row button {
+  flex: 1;
+  min-height: 2.75rem;
+}
+
+.mode-row button[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: transparent;
+}
+
+.mode-row button[aria-pressed="false"] {
+  background: var(--accent-soft);
+  color: var(--text);
+  border-color: var(--line);
+}
+
+.stage {
+  display: flex;
+  justify-content: center;
+}
+
+.board {
+  position: relative;
+  width: min(100%, 26rem);
+  aspect-ratio: 542 / 589;
+  background-color: var(--wood);
+  background-image: var(--board-url);
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  border-radius: 0.55rem;
+  box-shadow:
+    0 0 0 2px color-mix(in oklab, var(--accent) 35%, #000),
+    0 12px 32px rgba(0, 0, 0, 0.22);
+  touch-action: manipulation;
+  user-select: none;
+}
+
+.cell {
+  position: absolute;
+  width: 11.5%;
+  height: 10.5%;
+  transform: translate(-50%, -50%);
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  border-radius: 50%;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  z-index: 1;
+}
+
+.cell img {
+  width: 92%;
+  height: 92%;
+  object-fit: contain;
+  pointer-events: none;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.25));
+}
+
+.cell.legal::after {
+  content: "";
+  position: absolute;
+  width: 28%;
+  height: 28%;
+  border-radius: 50%;
+  background: color-mix(in oklab, var(--legal) 75%, transparent);
+  z-index: 0;
+}
+
+.cell.legal.has-piece::after {
+  width: 86%;
+  height: 86%;
+  background: transparent;
+  border: 3px solid color-mix(in oklab, var(--legal) 85%, #fff);
+  box-sizing: border-box;
+}
+
+.cell.selected {
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--select) 80%, transparent);
+  z-index: 2;
+}
+
+.cell.last:not(.selected)::before {
+  content: "";
+  position: absolute;
+  inset: 12%;
+  border-radius: 50%;
+  border: 2px dashed color-mix(in oklab, var(--accent) 55%, transparent);
+  pointer-events: none;
+}
+
+.cell:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.status {
+  margin: 0;
+  text-align: center;
+  font-weight: 650;
+  padding: 0.65rem 0.85rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  min-height: 2.6rem;
+}
+
+.status[data-tone="win"] {
+  background: color-mix(in oklab, var(--neon) 22%, var(--panel));
+}
+
+.status[data-tone="lose"] {
+  background: color-mix(in oklab, var(--danger) 12%, var(--panel));
+}
+
+.status[data-tone="warn"] {
+  background: color-mix(in oklab, #f59e0b 18%, var(--panel));
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.controls button {
+  flex: 1;
+  min-height: 2.75rem;
+}
+
+button {
+  font: inherit;
+  border: 1px solid transparent;
+  background: var(--accent);
+  color: var(--on-accent);
+  border-radius: 0.55rem;
+  padding: 0.55rem 0.9rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+button.secondary {
+  background: var(--accent-soft);
+  color: var(--text);
+  border-color: var(--line);
+}
+
+button.danger {
+  background: color-mix(in oklab, var(--danger) 88%, #000);
+  color: #fff;
+}
+
+button:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.confirm {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: end center;
+  padding: 1rem;
+  background: color-mix(in oklab, #000 45%, transparent);
+}
+
+.confirm[hidden] {
+  display: none;
+}
+
+.confirm-panel {
+  width: min(100%, 22rem);
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  padding: 1.1rem 1rem 1rem;
+  margin-bottom: max(0.5rem, env(safe-area-inset-bottom));
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
+}
+
+.confirm-panel h2 {
+  margin: 0 0 0.4rem;
+  font-size: 1.15rem;
+}
+
+.confirm-panel p {
+  margin: 0 0 1rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.confirm-actions button {
+  flex: 1;
+  min-height: 2.75rem;
+}
+
+@media (min-width: 40rem) {
+  main {
+    width: min(100%, 32rem);
+    padding-top: 1.25rem;
+  }
+
+  .confirm {
+    place-items: center;
+  }
+}

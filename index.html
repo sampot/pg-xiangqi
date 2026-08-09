@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <meta
+      name="description"
+      content="中國象棋：人機／雙人熱座，標準規則與將軍困斃。純前端 Playgrounds SAM。"
+    />
+    <title>象棋</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main>
+      <header class="hero">
+        <h1>象棋</h1>
+        <p class="tagline">楚河漢界 · 人機／雙人 · 純娛樂</p>
+      </header>
+
+      <section class="meter" aria-label="對局狀態">
+        <div class="meter-item">
+          <span class="label">行棋</span>
+          <strong id="turn">紅方</strong>
+        </div>
+        <div class="meter-item">
+          <span class="label">狀態</span>
+          <strong id="check">—</strong>
+        </div>
+        <div class="meter-item">
+          <span class="label">模式</span>
+          <strong id="mode">人機</strong>
+        </div>
+        <div class="meter-actions">
+          <button type="button" id="btn-mute" class="secondary" aria-pressed="true">
+            音效開
+          </button>
+        </div>
+      </section>
+
+      <div class="mode-row" role="group" aria-label="對戰模式">
+        <button type="button" id="btn-mode-ai" aria-pressed="true">人機</button>
+        <button type="button" id="btn-mode-hot" class="secondary" aria-pressed="false">
+          雙人熱座
+        </button>
+      </div>
+
+      <div class="stage">
+        <div
+          id="board"
+          class="board"
+          role="grid"
+          aria-label="象棋棋盤 九路十列"
+          style="--board-url: url('./assets/boards/board.svg')"
+        ></div>
+      </div>
+
+      <p id="status" class="status" role="status">紅方先行 · 點選己方棋子</p>
+
+      <div class="controls">
+        <button type="button" id="btn-new" class="secondary">開局</button>
+        <button type="button" id="btn-resign" class="danger">認輸</button>
+      </div>
+
+      <p class="hint">
+        點己方棋子再點目標格移動或吃子；合法格會提示。人機模式你執紅、電腦執黑。將軍須應，無棋可走（困斃）判負。素材署名見 README。
+      </p>
+    </main>
+
+    <div id="confirm" class="confirm" hidden>
+      <div
+        class="confirm-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="confirm-title"
+      >
+        <h2 id="confirm-title">確認</h2>
+        <p id="confirm-body"></p>
+        <div class="confirm-actions">
+          <button type="button" id="confirm-cancel" class="secondary">取消</button>
+          <button type="button" id="confirm-ok" class="danger">確定</button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
