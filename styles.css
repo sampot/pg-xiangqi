@@ -175,9 +175,14 @@ main {
   justify-content: center;
 }
 
-.board {
+.board-wrap {
   position: relative;
   width: min(100%, 26rem);
+}
+
+.board {
+  position: relative;
+  width: 100%;
   aspect-ratio: 542 / 589;
   background-color: var(--wood);
   background-image: var(--board-url);
@@ -189,6 +194,33 @@ main {
     0 12px 32px rgba(0, 0, 0, 0.22);
   touch-action: manipulation;
   user-select: none;
+}
+
+/* Red-side file labels: 九…一 left→right (= 一…九 right→left) */
+.file-labels {
+  position: absolute;
+  z-index: 3;
+  left: calc(100% * 32 / 542);
+  width: calc(100% * 448 / 542);
+  bottom: calc(100% * 12 / 589);
+  display: flex;
+  justify-content: space-between;
+  pointer-events: none;
+  font-family:
+    "Songti TC",
+    "Noto Serif TC",
+    "Hiragino Mincho ProN",
+    serif;
+  font-size: clamp(0.72rem, 2.9vw, 1rem);
+  font-weight: 700;
+  line-height: 1;
+  color: #111;
+  text-align: center;
+}
+
+.file-labels span {
+  flex: 1;
+  text-align: center;
 }
 
 .cell {
