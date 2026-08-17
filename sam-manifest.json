@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "rev": "c479b53",
+  "files": [
+    "app.js",
+    "assets/boards/board.svg",
+    "assets/music/jingles_HIT05.ogg",
+    "assets/sfx/click1.ogg",
+    "assets/sfx/click2.ogg",
+    "assets/sfx/rollover1.ogg",
+    "assets/sfx/switch1.ogg",
+    "audio.js",
+    "functions.js",
+    "index.html",
+    "styles.css",
+    "xiangqi.js"
+  ]
+}
